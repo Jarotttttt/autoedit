@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from ..core.manifest import seconds_to_us
-from ..runtime import app_data_root, report_progress, resource_path
+from ..runtime import app_data_root, asset_path, report_progress
 from .aligned import TimedWord
 
 ProgressCallback = Callable[[float, str], None]
@@ -152,11 +152,10 @@ def _model_cache_dir() -> Path:
 
 
 def _bundled_model_dir(model: str) -> Path | None:
-    for relative in (f"assets/models/{model}", f"models/{model}"):
-        candidate = resource_path(relative)
-        if candidate.is_dir() and all(
-            (candidate / filename).is_file()
-            for filename in ("config.json", "model.bin", "tokenizer.json")
-        ):
-            return candidate
+    candidate = asset_path("models", model)
+    if candidate.is_dir() and all(
+        (candidate / filename).is_file()
+        for filename in ("config.json", "model.bin", "tokenizer.json")
+    ):
+        return candidate
     return None

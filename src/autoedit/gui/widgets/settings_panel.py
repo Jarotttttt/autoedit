@@ -116,12 +116,6 @@ class SettingsPanel(Card):
         grid.addWidget(FieldLabel("Bahasa audio"), 3, 0)
         grid.addWidget(self.language_combo, 3, 1)
 
-        self.model_combo = QComboBox()
-        self.model_combo.addItems(("tiny", "base", "small", "medium"))
-        self.model_combo.currentTextChanged.connect(app.on_source_changed)
-        grid.addWidget(FieldLabel("Model Whisper"), 4, 0)
-        grid.addWidget(self.model_combo, 4, 1)
-
         self.body.addLayout(grid)
 
         self.motion_check = QCheckBox("Gerakan halus (zoom / pan)")
@@ -135,7 +129,7 @@ class SettingsPanel(Card):
             "fps": int(self.fps_combo.currentText()),
             "shot": self.shot_edit.text().strip(),
             "language": self.language_combo.currentText(),
-            "model": self.model_combo.currentText(),
+            "model": "small",
             "motion": self.motion_check.isChecked(),
             "captions": self.captions_check.isChecked(),
         }
@@ -156,7 +150,6 @@ class SettingsPanel(Card):
         self.fps_combo.setCurrentText(str(fps))
         self.shot_edit.setText(shot)
         self.language_combo.setCurrentText(language)
-        self.model_combo.setCurrentText(model)
         self.motion_check.setChecked(motion)
         self.captions_check.setChecked(captions)
 

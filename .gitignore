@@ -26,6 +26,7 @@ coverage.xml
 .nox/
 
 data/
+src/autoedit/assets/models/
 out/
 video/
 *.mp4

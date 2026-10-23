@@ -151,9 +151,11 @@ py -m pip install pyinstaller
 ```
 
 Konfigurasi build ada di `autoedit.spec`: ikon aplikasi, aset tema, FFmpeg, dan model
-Whisper ikut dibundel, sementara komponen Qt yang tidak dipakai dibuang. Ukuran folder
-hasil sekitar **386 MB**, sebagian besar berasal dari FFmpeg, PyAV, CTranslate2, dan
-ONNX Runtime yang dibutuhkan fitur Whisper.
+Whisper `small` ikut dibundel, sementara komponen Qt yang tidak dipakai dibuang. Ukuran
+folder hasil sekitar **870 MB**, sebagian besar berasal dari model `small`, FFmpeg,
+PyAV, CTranslate2, dan ONNX Runtime. File model tidak disimpan di Git karena ukurannya
+melebihi batas file GitHub; siapkan model di `src/autoedit/assets/models/small/` sebelum
+menjalankan build.
 
 Folder `build/` dan `dist/` tidak ikut masuk repositori. Pada versi `.exe`, data
 (cache model, berkas sementara, preferensi) disimpan di `data\` yang sejajar dengan
