@@ -41,3 +41,23 @@ def test_canvas_validation():
 def test_motion_cycle_has_expected_members():
     assert MotionPreset.ZOOM_IN in MotionPreset
     assert MediaType.IMAGE.value == "image"
+
+
+def test_equal_ranges_covers_scene_exactly():
+    from autoedit.core.planner import _equal_ranges
+
+    ranges = _equal_ranges(1_000_000, 9_000_000, 3)
+    assert len(ranges) == 3
+    assert ranges[0][0] == 1_000_000
+    assert ranges[-1][1] == 10_000_000
+    for previous, current in zip(ranges, ranges[1:]):
+        assert previous[1] == current[0]
+
+
+def test_plan_image_splits_long_scene():
+    from autoedit.core.planner import PlannerConfig, SceneSpec, _plan_image
+
+    scene = SceneSpec(Path("a.png"), 0, 9_000_000, "teks", 1)
+    clips = _plan_image(scene, PlannerConfig(), 0)
+    assert len(clips) == 2
+    assert sum(clip.duration_us for clip in clips) == 9_000_000

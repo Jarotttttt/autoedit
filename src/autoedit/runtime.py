@@ -34,6 +34,11 @@ def configure_runtime_storage() -> Path:
         os.environ[name] = str(temporary)
     tempfile.tempdir = str(temporary)
 
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+    os.environ.setdefault("PYTHONUTF8", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+
     os.environ["HF_HOME"] = str(cache / "huggingface")
     os.environ["HUGGINGFACE_HUB_CACHE"] = str(cache / "huggingface" / "hub")
     os.environ["XDG_CACHE_HOME"] = str(cache)

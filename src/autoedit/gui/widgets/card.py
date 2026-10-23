@@ -1,56 +1,102 @@
 from __future__ import annotations
 
-import tkinter as tk
-from tkinter import ttk
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ..theme import COLORS
+
+class Card(QFrame):
+    def __init__(
+        self,
+        title: str,
+        *,
+        subtitle: str | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("Card")
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(16, 14, 16, 16)
+        outer.setSpacing(10)
+
+        self.header = QHBoxLayout()
+        self.header.setContentsMargins(0, 0, 0, 0)
+        self.header.setSpacing(8)
+
+        self.title_label = QLabel(title)
+        self.title_label.setObjectName("CardTitle")
+        self.header.addWidget(self.title_label)
+
+        self.subtitle_label: QLabel | None = None
+        if subtitle:
+            self.subtitle_label = QLabel(subtitle)
+            self.subtitle_label.setObjectName("Muted")
+            self.header.addWidget(self.subtitle_label)
+
+        self.header.addStretch(1)
+        outer.addLayout(self.header)
+
+        self.body = QVBoxLayout()
+        self.body.setContentsMargins(0, 0, 0, 0)
+        self.body.setSpacing(8)
+        outer.addLayout(self.body, 1)
+
+    def add_header_widget(self, widget: QWidget) -> None:
+        self.header.addWidget(widget, 0, Qt.AlignmentFlag.AlignRight)
 
 
-def card(
-    parent: tk.Misc,
-    title: str,
-    *,
-    subtitle: str | None = None,
-    padding: int = 16,
-) -> ttk.Frame:
-    outer = tk.Frame(
-        parent,
-        background=COLORS["surface"],
-        highlightbackground=COLORS["border"],
-        highlightthickness=1,
-        bd=0,
-    )
-    inner = ttk.Frame(outer, style="Card.TFrame", padding=padding)
-    inner.pack(fill="both", expand=True)
+class FieldLabel(QLabel):
+    def __init__(self, text: str) -> None:
+        super().__init__(text.upper())
+        self.setObjectName("FieldLabel")
 
-    header = ttk.Frame(inner, style="Card.TFrame")
-    header.pack(fill="x", pady=(0, 10))
-    ttk.Label(header, text=title, style="CardTitle.TLabel").pack(side="left")
-    if subtitle:
-        ttk.Label(header, text=subtitle, style="CardMuted.TLabel").pack(
-            side="left", padx=(8, 0), pady=(2, 0)
+
+class StatusLabel(QLabel):
+    def __init__(self, text: str = "", tone: str = "muted") -> None:
+        super().__init__(text)
+        self.setWordWrap(True)
+        self.set_tone(tone)
+
+    def set_tone(self, tone: str) -> None:
+        self.setObjectName(
+            {
+                "muted": "Muted",
+                "success": "Success",
+                "warning": "Warning",
+                "danger": "Danger",
+            }[tone]
         )
-    inner.body = ttk.Frame(inner, style="Card.TFrame")  # type: ignore[attr-defined]
-    inner.body.pack(fill="both", expand=True)  # type: ignore[attr-defined]
-    return inner
+        self.style().unpolish(self)
+        self.style().polish(self)
 
 
-def field_label(parent: tk.Misc, text: str) -> ttk.Label:
-    return ttk.Label(parent, text=text.upper(), style="Field.TLabel")
-
-
-def path_row(
-    parent: tk.Misc,
-    variable: tk.StringVar,
-    command,
-    *,
-    button_text: str = "Pilih…",
-    width: int = 34,
-) -> ttk.Frame:
-    row = ttk.Frame(parent, style="Card.TFrame")
-    entry = ttk.Entry(row, textvariable=variable, width=width)
-    entry.pack(side="left", fill="x", expand=True)
-    ttk.Button(row, text=button_text, command=command, width=8).pack(
-        side="left", padx=(6, 0)
-    )
-    return row
+class PathRow(QWidget):
+    def __init__(
+        self,
+        line_edit: QLineEdit,
+        button_text: str,
+        command,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        self.line_edit = line_edit
+        self.line_edit.setCursorPosition(0)
+        self.line_edit.textChanged.connect(
+            lambda value: self.line_edit.setToolTip(value)
+        )
+        layout.addWidget(line_edit, 1)
+        self.button = QPushButton(button_text)
+        self.button.setObjectName("Small")
+        self.button.clicked.connect(command)
+        layout.addWidget(self.button, 0)

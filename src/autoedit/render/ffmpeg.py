@@ -11,7 +11,7 @@ from ..runtime import hidden_subprocess_kwargs, resource_path
 
 
 class FfmpegError(RuntimeError):
-    """Dilempar ketika FFmpeg tidak ditemukan atau gagal menjalankan perintah."""
+    pass
 
 
 @lru_cache(maxsize=1)

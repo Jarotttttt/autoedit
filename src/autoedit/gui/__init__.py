@@ -1,5 +1,5 @@
-from __future__ import annotations
+"""Antarmuka desktop autoedit berbasis PySide6."""
 
-from .app import AutoEditApp, launch
+from .app import AutoEditWindow, launch
 
-__all__ = ["AutoEditApp", "launch"]
+__all__ = ["AutoEditWindow", "launch"]

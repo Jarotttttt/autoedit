@@ -1,33 +1,47 @@
 # autoedit
 
 Membuat video otomatis dari **narasi audio**, **media berurutan**, dan **transcript**.
-Setiap kalimat transcript menjadi satu potongan visual, lalu semuanya dirender menjadi MP4
-dengan caption yang bisa ditempel permanen.
+
+Setiap kalimat transcript dipetakan ke satu potongan visual, lalu semuanya dirender
+menjadi MP4 dengan caption yang bisa ditempel permanen.
+
+```
+audio narasi + gambar 001.jpg, 002.jpg, ... + transcript
+                          ↓
+        Nama Project.mp4  +  Nama Project.timeline.json
+```
 
 ## Fitur
 
-- Dua sumber timestamp: **Whisper** (audio ditranskripsi otomatis) atau **file SRT** (timestamp asli dipakai langsung).
-- Transcript tunggal, tanpa pilihan mode selain sumber timestamp.
+- Antarmuka desktop **PySide6** dengan sidebar pengaturan, tabel media, dan pratinjau gambar.
+- Dua sumber timestamp: **Whisper** (audio ditranskripsi otomatis) atau **file SRT**
+  (timestamp asli dipakai langsung).
+- Transcript tunggal berupa `.txt` atau `.srt`, tanpa mode tambahan.
 - Urutan media mengikuti nomor pada nama file (`001.jpg`, `002.jpg`, …).
 - Peringatan nomor hilang, nomor ganda, dan file tanpa nomor.
 - Caption otomatis dari setiap kalimat, dapat ditempel ke video.
 - Gerakan halus zoom dan pan pada gambar agar tidak terasa statis.
 - Manifest timeline JSON sebagai sumber kebenaran untuk render ulang.
+- Progres pemrosesan ditampilkan langsung di jendela aplikasi.
 - Semua proses berjalan lokal; tidak ada unggahan ke internet.
 
 ## Kebutuhan
 
 - Windows 10 atau 11
 - Python 3.10 atau lebih baru
-- FFmpeg tersedia di `PATH`, atau lewat `AUTOEDIT_FFMPEG`, atau paket `imageio-ffmpeg`
+- FFmpeg, dipilih dengan urutan berikut:
+  1. variabel lingkungan `AUTOEDIT_FFMPEG`
+  2. `ffmpeg` di `PATH`
+  3. paket `imageio-ffmpeg` (terpasang otomatis sebagai dependensi)
 
-Whisper hanya dibutuhkan bila transcript berupa `.txt`. Pemakaian pertama mengunduh model
-ke folder `data/cache/whisper`.
+Whisper hanya dibutuhkan bila transcript berupa `.txt`. Pemakaian pertama mengunduh
+model ke folder `data/cache/whisper`.
 
 ## Pemasangan
 
 ```powershell
-cd D:\autoedit
+git clone https://github.com/<nama-anda>/autoedit.git
+cd autoedit
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
@@ -54,6 +68,9 @@ python -m autoedit
 5. Atur nama project, resolusi, FPS, dan folder output.
 6. Klik **Buat video**.
 
+Sumber timestamp **otomatis** memilih SRT bila transcript berekstensi `.srt`,
+dan Whisper bila berekstensi `.txt`.
+
 Hasil yang dibuat di folder output:
 
 ```text
@@ -75,7 +92,9 @@ output/
 Ekstensi gambar: `.jpg .jpeg .png .webp .bmp .gif .tif .tiff`
 Ekstensi video: `.mp4 .mov .mkv .avi .webm .m4v .wmv`
 
-Jumlah media harus sama dengan jumlah kalimat pada transcript.
+Jumlah media harus sama dengan jumlah kalimat pada transcript. Bila jumlahnya berbeda,
+aplikasi menampilkan pesan seperti
+`Transcript memiliki 6 kalimat tetapi media berisi 5 file`.
 
 ### Transcript `.txt`
 
@@ -85,6 +104,7 @@ Dunia perlahan akan berubah menjadi gelap.
 ```
 
 Kalimat dipisah berdasarkan tanda baca `. ! ? … 。！？`, bukan berdasarkan baris baru.
+File `.txt` memerlukan Whisper untuk menentukan timestamp.
 
 ### Transcript `.srt`
 
@@ -109,7 +129,8 @@ src/autoedit/
 ├── speech/    splitter, tokenizer, srt_parser, aligner, normalizer, whisper
 ├── render/    ffmpeg, filters, captions, renderer
 ├── app/       pipeline, settings
-├── gui/       aplikasi desktop, tema, widget
+├── gui/       jendela PySide6, tema, widget
+├── assets/    ikon kecil untuk tema antarmuka
 └── runtime.py penyimpanan sementara dan cache
 ```
 
@@ -119,8 +140,12 @@ src/autoedit/
 py -m pytest
 ```
 
-## Batasan
+## Penyimpanan data
 
-- Satu kalimat transcript dipetakan ke tepat satu media, berdasarkan urutan.
-- Tidak ada analisis isi gambar; kecocokan visual sepenuhnya ditentukan urutan media.
-- Rendering memakai satu proses FFmpeg per clip, sehingga video berdurasi panjang memerlukan waktu sebanding.
+Aplikasi menyimpan cache Whisper, berkas sementara, dan preferensi di folder `data/`.
+Folder ini tidak ikut masuk repositori. Lokasinya dapat dipindahkan dengan variabel
+lingkungan `AUTOEDIT_DATA_DIR`.
+
+## Lisensi
+
+Dirilis di bawah [MIT License](LICENSE).

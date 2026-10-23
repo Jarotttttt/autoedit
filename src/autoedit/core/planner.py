@@ -286,7 +286,7 @@ def _plan_video(
 def _equal_ranges(start_us: int, duration_us: int, count: int) -> list[tuple[int, int]]:
     boundaries = [start_us + round(duration_us * index / count) for index in range(count)]
     boundaries.append(start_us + duration_us)
-    return list(zip(boundaries, boundaries[1:], strict=True))
+    return list(zip(boundaries[:-1], boundaries[1:]))
 
 
 def _fill_gaps(project: TimelineProject) -> None:

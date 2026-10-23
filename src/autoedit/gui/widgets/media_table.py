@@ -1,83 +1,87 @@
 from __future__ import annotations
 
-import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+)
 
 from ...core.numbering import inspect_numbering
-from ...core.probe import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, ProbeError, probe_media
+from ...core.probe import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 from ...core.scanner import scan_media
-from ..theme import COLORS
-from .card import card
-from .settings_panel import format_duration
+from .card import Card, StatusLabel
+from ..theme import TEXT_MUTED
 
 
-class MediaTable(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
+def format_duration(duration_us: int) -> str:
+    if duration_us <= 0:
+        return "—"
+    total = duration_us / 1_000_000
+    minutes = int(total // 60)
+    seconds = total - minutes * 60
+    return f"{minutes:02d}:{seconds:05.2f}"
+
+
+class MediaTable(Card):
+    def __init__(self, app) -> None:
+        super().__init__("Urutan media", subtitle="0 file")
         self.app = app
         self.paths: list[Path] = []
         self._durations: dict[Path, str] = {}
         self._kinds: dict[Path, str] = {}
 
-        frame = card(self, "Urutan media", padding=14)
+        self.up_button = QPushButton("↑ Naik")
+        self.up_button.setObjectName("Small")
+        self.up_button.clicked.connect(lambda: app.move_media(-1))
+        self.down_button = QPushButton("↓ Turun")
+        self.down_button.setObjectName("Small")
+        self.down_button.clicked.connect(lambda: app.move_media(1))
+        self.reload_button = QPushButton("↻ Muat ulang")
+        self.reload_button.setObjectName("Small")
+        self.reload_button.clicked.connect(app.reload_media)
 
-        header = ttk.Frame(frame, style="Card.TFrame")
-        header.pack(fill="x", pady=(0, 10))
-        ttk.Label(header, text="Urutan media", style="CardTitle.TLabel").pack(side="left")
-        self.count_label = ttk.Label(header, text="0 file", style="CardMuted.TLabel")
-        self.count_label.pack(side="left", padx=(8, 0), pady=(2, 0))
+        self.add_header_widget(self.reload_button)
+        self.add_header_widget(self.down_button)
+        self.add_header_widget(self.up_button)
 
-        buttons = ttk.Frame(header, style="Card.TFrame")
-        buttons.pack(side="right")
-        ttk.Button(buttons, text="↑ Naik", width=8, command=lambda: app.move_media(-1)).pack(
-            side="left", padx=(0, 4)
-        )
-        ttk.Button(
-            buttons, text="↓ Turun", width=8, command=lambda: app.move_media(1)
-        ).pack(side="left", padx=(0, 4))
-        ttk.Button(
-            buttons, text="↻ Muat ulang", width=12, command=app.reload_media
-        ).pack(side="left")
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["#", "Nama file", "Jenis", "Durasi"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
+        self.table.setAlternatingRowColors(True)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.table.verticalHeader().setDefaultSectionSize(28)
 
-        body = frame.body  # type: ignore[attr-defined]
-        wrapper = tk.Frame(
-            body,
-            background=COLORS["surface_raised"],
-            highlightbackground=COLORS["border"],
-            highlightthickness=1,
-            bd=0,
-        )
-        wrapper.pack(fill="both", expand=True)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(0, 48)
+        self.table.setColumnWidth(2, 86)
+        self.table.setColumnWidth(3, 96)
 
-        self.tree = ttk.Treeview(
-            wrapper,
-            columns=("order", "name", "kind", "duration"),
-            show="headings",
-            style="Media.Treeview",
-            selectmode="browse",
-        )
-        self.tree.heading("order", text="#")
-        self.tree.heading("name", text="NAMA FILE")
-        self.tree.heading("kind", text="JENIS")
-        self.tree.heading("duration", text="DURASI")
-        self.tree.column("order", width=48, anchor="center", stretch=False)
-        self.tree.column("name", width=380, anchor="w")
-        self.tree.column("kind", width=80, anchor="center", stretch=False)
-        self.tree.column("duration", width=96, anchor="center", stretch=False)
-        self.tree.tag_configure("odd", background=COLORS["surface_raised"])
-        self.tree.tag_configure("even", background="#232c39")
-        self.tree.pack(side="left", fill="both", expand=True)
+        self.table.itemSelectionChanged.connect(app.on_media_selected)
+        self.body.addWidget(self.table, 1)
 
-        scroll = ttk.Scrollbar(
-            wrapper, orient="vertical", command=self.tree.yview, style="Vertical.TScrollbar"
-        )
-        scroll.pack(side="right", fill="y")
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.bind("<<TreeviewSelect>>", lambda _event: app.on_media_selected())
+        self.warning = StatusLabel("Pilih folder media untuk memuat file.")
+        self.body.addWidget(self.warning)
 
-        self.warning = ttk.Label(body, text="", style="CardMuted.TLabel", wraplength=760)
-        self.warning.pack(fill="x", pady=(8, 0))
+    def set_count(self, count: int) -> None:
+        if self.subtitle_label is not None:
+            self.subtitle_label.setText(f"{count} file")
 
     def load(self, folder: Path | None) -> None:
         self.paths = []
@@ -90,30 +94,25 @@ class MediaTable(ttk.Frame):
                 self.paths = []
         self.refresh()
 
-    def set_paths(self, paths: list[Path]) -> None:
-        self.paths = list(paths)
-        self.refresh()
-
     def refresh(self, selected: int | None = None) -> None:
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        self.table.blockSignals(True)
+        self.table.setRowCount(0)
+        self.table.setRowCount(len(self.paths))
         for index, path in enumerate(self.paths):
-            self.tree.insert(
-                "",
-                "end",
-                iid=str(index),
-                values=(
-                    index + 1,
-                    path.name,
-                    self._kinds.get(path, self._guess_kind(path)),
-                    self._durations.get(path, "—"),
-                ),
-                tags=("even" if index % 2 else "odd",),
-            )
-        self.count_label.configure(text=f"{len(self.paths)} file")
+            order = QTableWidgetItem(str(index + 1))
+            order.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            name = QTableWidgetItem(path.name)
+            kind = QTableWidgetItem(self._kinds.get(path, self._guess_kind(path)))
+            kind.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            duration = QTableWidgetItem(self._durations.get(path, "—"))
+            duration.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            for column, item in enumerate((order, name, kind, duration)):
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
+                self.table.setItem(index, column, item)
+        self.table.blockSignals(False)
+        self.set_count(len(self.paths))
         if selected is not None and 0 <= selected < len(self.paths):
-            self.tree.selection_set(str(selected))
-            self.tree.see(str(selected))
+            self.table.selectRow(selected)
         self._update_warning()
 
     def update_probe(self, index: int, duration_us: int, kind: str) -> None:
@@ -122,47 +121,23 @@ class MediaTable(ttk.Frame):
         path = self.paths[index]
         self._durations[path] = format_duration(duration_us)
         self._kinds[path] = kind
-        item = str(index)
-        if self.tree.exists(item):
-            values = list(self.tree.item(item, "values"))
-            if len(values) == 4:
-                values[2] = kind
-                values[3] = self._durations[path]
-                self.tree.item(item, values=values)
-
-    def probe_all(self, on_done=None, on_error=None) -> None:
-        import threading
-
-        paths = list(self.paths)
-
-        def runner() -> None:
-            for index, path in enumerate(paths):
-                try:
-                    info = probe_media(path)
-                    kind = "Video" if path.suffix.lower() in VIDEO_EXTENSIONS else "Gambar"
-                    self.app.after(
-                        0,
-                        lambda i=index, d=info.duration_us, k=kind: self.update_probe(i, d, k),
-                    )
-                except ProbeError:
-                    self.app.after(
-                        0,
-                        lambda i=index: self.update_probe(i, 0, "?"),
-                    )
-            if on_done is not None:
-                self.app.after(0, on_done)
-
-        threading.Thread(target=runner, daemon=True).start()
+        kind_item = self.table.item(index, 2)
+        duration_item = self.table.item(index, 3)
+        if kind_item is not None:
+            kind_item.setText(kind)
+        if duration_item is not None:
+            duration_item.setText(self._durations[path])
 
     def selected_index(self) -> int | None:
-        selection = self.tree.selection()
-        if not selection:
+        rows = self.table.selectionModel().selectedRows() if self.table.selectionModel() else []
+        if not rows:
             return None
-        return int(selection[0])
+        return rows[0].row()
 
     def _update_warning(self) -> None:
         if not self.paths:
-            self.warning.configure(text="Pilih folder media untuk memuat file.", style="CardMuted.TLabel")
+            self.warning.setText("Pilih folder media untuk memuat file.")
+            self.warning.set_tone("muted")
             return
         report = inspect_numbering(self.paths)
         messages: list[str] = []
@@ -175,11 +150,11 @@ class MediaTable(ttk.Frame):
         if report.unnumbered:
             messages.append(f"{len(report.unnumbered)} file tanpa nomor di awal nama")
         if messages:
-            self.warning.configure(text=" · ".join(messages), style="Warning.TLabel")
+            self.warning.setText(" · ".join(messages))
+            self.warning.set_tone("warning")
         else:
-            self.warning.configure(
-                text="Urutan media sesuai nomor pada nama file.", style="Success.TLabel"
-            )
+            self.warning.setText("Urutan media sesuai nomor pada nama file.")
+            self.warning.set_tone("success")
 
     @staticmethod
     def _guess_kind(path: Path) -> str:
@@ -191,132 +166,89 @@ class MediaTable(ttk.Frame):
         return "?"
 
 
-class PreviewPanel(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
+class PreviewPanel(Card):
+    def __init__(self, app) -> None:
+        super().__init__("Pratinjau")
         self.app = app
-        frame = card(self, "Pratinjau", padding=12)
-        body = frame.body  # type: ignore[attr-defined]
-        self.canvas = tk.Canvas(
-            body,
-            background=COLORS["surface_raised"],
-            highlightthickness=0,
-            bd=0,
-            height=190,
-        )
-        self.canvas.pack(fill="both", expand=True)
-        self.canvas.create_text(
-            10,
-            10,
-            anchor="nw",
-            text="Pilih file media untuk melihat pratinjau",
-            fill=COLORS["muted"],
-            font=("Segoe UI", 9),
-            tags="placeholder",
-        )
-        self._image = None
+        self._pixmap: QPixmap | None = None
         self._path: Path | None = None
-        self.canvas.bind("<Configure>", lambda _event: self._redraw())
 
-    def show(self, path: Path | None) -> None:
+        self.image = QLabel("Pilih file media untuk melihat pratinjau")
+        self.image.setObjectName("Muted")
+        self.image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image.setMinimumHeight(170)
+        self.image.setStyleSheet(
+            f"background-color: #1d2531; border-radius: 8px; color: {TEXT_MUTED};"
+        )
+        self.body.addWidget(self.image, 1)
+
+    def show_path(self, path: Path | None) -> None:
         self._path = path
-        self._redraw()
-
-    def _redraw(self) -> None:
-        self.canvas.delete("all")
-        width = max(1, self.canvas.winfo_width())
-        height = max(1, self.canvas.winfo_height())
-        if self._path is None or not self._path.is_file():
-            self.canvas.create_text(
-                10,
-                10,
-                anchor="nw",
-                text="Pilih file media untuk melihat pratinjau",
-                fill=COLORS["muted"],
-                font=("Segoe UI", 9),
-            )
+        if path is None or not path.is_file():
+            self._pixmap = None
+            self.image.setPixmap(QPixmap())
+            self.image.setText("Pilih file media untuk melihat pratinjau")
             return
-        if self._path.suffix.lower() not in IMAGE_EXTENSIONS:
-            self.canvas.create_text(
-                width / 2,
-                height / 2,
-                text=f"🎞  {self._path.name}\n(video)",
-                fill=COLORS["muted"],
-                font=("Segoe UI", 10),
-                justify="center",
-            )
+        if path.suffix.lower() not in IMAGE_EXTENSIONS:
+            self._pixmap = None
+            self.image.setPixmap(QPixmap())
+            self.image.setText(f"🎞  {path.name}\n(video)")
             return
-        try:
-            from PIL import Image, ImageTk
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull():
+            self._pixmap = None
+            self.image.setPixmap(QPixmap())
+            self.image.setText(f"Gagal memuat pratinjau: {path.name}")
+            return
+        self._pixmap = pixmap
+        self._render()
 
-            with Image.open(self._path) as source:
-                image = source.convert("RGB")
-                image.thumbnail((width - 12, height - 12), Image.LANCZOS)
-                self._image = ImageTk.PhotoImage(image)
-            self.canvas.create_image(width / 2, height / 2, image=self._image)
-        except Exception as error:
-            self.canvas.create_text(
-                10,
-                10,
-                anchor="nw",
-                text=f"Gagal memuat pratinjau: {error}",
-                fill=COLORS["danger"],
-                font=("Segoe UI", 9),
-                width=width - 20,
-            )
-
-
-class ActionBar(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
-        wrapper = tk.Frame(
-            self,
-            background=COLORS["surface"],
-            highlightbackground=COLORS["border"],
-            highlightthickness=1,
-            bd=0,
+    def _render(self) -> None:
+        if self._pixmap is None:
+            return
+        size = self.image.size()
+        target = self._pixmap.scaled(
+            size,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
         )
-        wrapper.pack(fill="x")
+        self.image.setPixmap(target)
 
-        inner = ttk.Frame(wrapper, style="Card.TFrame", padding=(16, 12))
-        inner.pack(fill="x")
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._render()
 
-        top = ttk.Frame(inner, style="Card.TFrame")
-        top.pack(fill="x")
 
-        ttk.Button(top, text="Buka folder output", command=app.open_output).pack(side="left")
+class ActionBar(Card):
+    def __init__(self, app) -> None:
+        super().__init__("")
+        self.app = app
+        self.setObjectName("ActionCard")
+        self.layout().removeItem(self.header)
+        self.layout().setContentsMargins(4, 6, 4, 6)
 
-        self.status = ttk.Label(top, text="Siap", style="CardMuted.TLabel")
-        self.status.pack(side="left", padx=(14, 0))
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(14)
 
-        self.build_button = ttk.Button(
-            top, text="Buat video  →", style="Accent.TButton", command=app.start_build
-        )
-        self.build_button.pack(side="right")
+        self.open_button = QPushButton("Buka folder output")
+        self.open_button.clicked.connect(app.open_output)
+        row.addWidget(self.open_button, 0, Qt.AlignmentFlag.AlignVCenter)
 
-        self.progress = ttk.Progressbar(
-            inner,
-            orient="horizontal",
-            mode="determinate",
-            maximum=100,
-            style="Accent.Horizontal.TProgressbar",
-        )
-        self.progress.pack(fill="x", pady=(10, 0))
+        self.status = StatusLabel("Siap")
+        self.status.setWordWrap(False)
+        row.addWidget(self.status, 1, Qt.AlignmentFlag.AlignVCenter)
 
-    def set_status(self, text: str, tone: str = "muted") -> None:
-        style = {
-            "muted": "CardMuted.TLabel",
-            "success": "Success.TLabel",
-            "warning": "Warning.TLabel",
-            "danger": "Danger.TLabel",
-        }[tone]
-        self.status.configure(text=text, style=style)
+        self.build_button = QPushButton("Buat video  →")
+        self.build_button.setObjectName("Primary")
+        self.build_button.clicked.connect(app.start_build)
+        row.addWidget(self.build_button, 0, Qt.AlignmentFlag.AlignVCenter)
 
-    def set_progress(self, value: float) -> None:
-        self.progress.configure(value=max(0.0, min(1.0, value)) * 100)
+        self.body.addLayout(row)
 
-    def set_running(self, running: bool) -> None:
-        self.build_button.configure(
-            state="disabled" if running else "normal",
-            text="Sedang memproses…" if running else "Buat video  →",
-        )
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 1000)
+        self.progress.setValue(0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(4)
+        self.body.addWidget(self.progress)

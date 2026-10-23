@@ -1,179 +1,180 @@
 from __future__ import annotations
 
-import tkinter as tk
-from pathlib import Path
-from tkinter import filedialog, ttk
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QRadioButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from ...speech.aligned import TimestampSource
-from ..theme import COLORS
-from .card import card, field_label, path_row
+from .card import Card, FieldLabel, PathRow, StatusLabel
 
 
-class SourcePanel(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
+class SourcePanel(Card):
+    def __init__(self, app) -> None:
+        super().__init__("Sumber bahan")
         self.app = app
-        frame = card(self, "Sumber bahan")
-        body = frame.body  # type: ignore[attr-defined]
 
-        self._label(body, "Audio narasi")
-        path_row(body, app.audio_var, app.choose_audio).pack(fill="x", pady=(4, 10))
+        self.audio_edit = QLineEdit()
+        self.audio_edit.setPlaceholderText("Pilih file audio narasi")
+        self.body.addWidget(FieldLabel("Audio narasi"))
+        self.body.addWidget(PathRow(self.audio_edit, "Pilih…", app.choose_audio))
 
-        self._label(body, "Folder media")
-        path_row(body, app.media_dir_var, app.choose_media_dir).pack(fill="x", pady=(4, 10))
+        self.media_edit = QLineEdit()
+        self.media_edit.setPlaceholderText("Pilih folder berisi gambar atau video")
+        self.body.addWidget(FieldLabel("Folder media"))
+        self.body.addWidget(PathRow(self.media_edit, "Pilih…", app.choose_media_dir))
 
-        self._label(body, "Transcript (.txt / .srt)")
-        path_row(
-            body, app.transcript_var, app.choose_transcript, button_text="Pilih…"
-        ).pack(fill="x", pady=(4, 10))
+        self.transcript_edit = QLineEdit()
+        self.transcript_edit.setPlaceholderText("transcript.txt atau transcript.srt")
+        self.body.addWidget(FieldLabel("Transcript (.txt / .srt)"))
+        self.body.addWidget(
+            PathRow(self.transcript_edit, "Pilih…", app.choose_transcript)
+        )
 
-        self._label(body, "Sumber timestamp")
-        options = ttk.Frame(body, style="Card.TFrame")
-        options.pack(fill="x", pady=(4, 8))
-        for value, text in (
-            (TimestampSource.AUTO.value, "Otomatis (.srt → SRT, .txt → Whisper)"),
-            (TimestampSource.WHISPER.value, "Whisper (audio → timestamp)"),
-            (TimestampSource.SRT.value, "File SRT (timestamp asli)"),
+        self.body.addWidget(FieldLabel("Sumber timestamp"))
+        self.source_group = QWidget()
+        self.source_group.setObjectName("Plain")
+        self.source_layout = QVBoxLayout(self.source_group)
+        self.source_layout.setContentsMargins(0, 0, 0, 0)
+        self.source_layout.setSpacing(4)
+        self.source_buttons: dict[TimestampSource, QRadioButton] = {}
+        for source, text in (
+            (TimestampSource.AUTO, "Otomatis (.srt → SRT, .txt → Whisper)"),
+            (TimestampSource.WHISPER, "Whisper (audio → timestamp)"),
+            (TimestampSource.SRT, "File SRT (timestamp asli)"),
         ):
-            ttk.Radiobutton(
-                options,
-                text=text,
-                value=value,
-                variable=app.source_var,
-                style="Dark.TRadiobutton",
-                command=app.refresh_source_hint,
-            ).pack(anchor="w")
+            button = QRadioButton(text)
+            button.toggled.connect(app.on_source_changed)
+            self.source_buttons[source] = button
+            self.source_layout.addWidget(button)
+        self.body.addWidget(self.source_group)
 
-        self.hint = ttk.Label(body, text="", style="CardMuted.TLabel", wraplength=320)
-        self.hint.pack(fill="x", pady=(2, 0))
-        self._hint_body = body
+        self.hint = StatusLabel()
+        self.body.addWidget(self.hint)
 
-    @staticmethod
-    def _label(parent: tk.Misc, text: str) -> None:
-        field_label(parent, text).pack(anchor="w")
+    def current_source(self) -> TimestampSource:
+        for source, button in self.source_buttons.items():
+            if button.isChecked():
+                return source
+        return TimestampSource.AUTO
 
-    def set_hint(self, text: str, tone: str = "muted") -> None:
-        style = {
-            "muted": "CardMuted.TLabel",
-            "warning": "Warning.TLabel",
-            "success": "Success.TLabel",
-            "danger": "Danger.TLabel",
-        }[tone]
-        self.hint.configure(text=text, style=style)
+    def set_source(self, source: TimestampSource) -> None:
+        self.source_buttons[source].setChecked(True)
 
-
-class SettingsPanel(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
-        frame = card(self, "Pengaturan video")
-        body = frame.body  # type: ignore[attr-defined]
-
-        grid = ttk.Frame(body, style="Card.TFrame")
-        grid.pack(fill="x")
-        grid.columnconfigure(1, weight=1)
-
-        field_label(grid, "Resolusi").grid(row=0, column=0, sticky="w", pady=(0, 6))
-        canvas = ttk.Combobox(
-            grid,
-            textvariable=app.canvas_var,
-            values=app.canvas_choices,
-            state="readonly",
-            width=16,
-        )
-        canvas.grid(row=0, column=1, sticky="ew", padx=(8, 0), pady=(0, 6))
-
-        field_label(grid, "FPS").grid(row=1, column=0, sticky="w", pady=(0, 6))
-        ttk.Combobox(
-            grid,
-            textvariable=app.fps_var,
-            values=("24", "25", "30", "60"),
-            state="readonly",
-            width=16,
-        ).grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(0, 6))
-
-        field_label(grid, "Durasi per shot gambar").grid(
-            row=2, column=0, sticky="w", pady=(0, 6)
-        )
-        shot = ttk.Frame(grid, style="Card.TFrame")
-        shot.grid(row=2, column=1, sticky="ew", padx=(8, 0), pady=(0, 6))
-        ttk.Entry(shot, textvariable=app.shot_var, width=6).pack(side="left")
-        ttk.Label(shot, text="detik", style="CardMuted.TLabel").pack(
-            side="left", padx=(6, 0)
-        )
-
-        field_label(grid, "Bahasa audio").grid(row=3, column=0, sticky="w", pady=(0, 6))
-        ttk.Combobox(
-            grid,
-            textvariable=app.language_var,
-            values=app.language_choices,
-            state="readonly",
-            width=16,
-        ).grid(row=3, column=1, sticky="ew", padx=(8, 0), pady=(0, 6))
-
-        field_label(grid, "Model Whisper").grid(row=4, column=0, sticky="w")
-        ttk.Combobox(
-            grid,
-            textvariable=app.model_var,
-            values=("tiny", "base", "small", "medium"),
-            state="readonly",
-            width=16,
-        ).grid(row=4, column=1, sticky="ew", padx=(8, 0))
-
-        toggles = ttk.Frame(body, style="Card.TFrame")
-        toggles.pack(fill="x", pady=(12, 0))
-        ttk.Checkbutton(
-            toggles,
-            text="Gerakan halus (zoom / pan)",
-            variable=app.motion_var,
-            style="Dark.TCheckbutton",
-        ).pack(anchor="w")
-        ttk.Checkbutton(
-            toggles,
-            text="Tempel caption ke video",
-            variable=app.captions_var,
-            style="Dark.TCheckbutton",
-        ).pack(anchor="w")
+    def set_paths(self, audio: str, media: str, transcript: str) -> None:
+        self.audio_edit.setText(audio)
+        self.media_edit.setText(media)
+        self.transcript_edit.setText(transcript)
+        for edit in (self.audio_edit, self.media_edit, self.transcript_edit):
+            edit.setCursorPosition(0)
 
 
-class OutputPanel(ttk.Frame):
-    def __init__(self, master: tk.Misc, app) -> None:
-        super().__init__(master, style="TFrame")
-        frame = card(self, "Hasil")
-        body = frame.body  # type: ignore[attr-defined]
+class SettingsPanel(Card):
+    def __init__(self, app) -> None:
+        super().__init__("Pengaturan video")
+        self.app = app
 
-        field_label(body, "Nama project").pack(anchor="w")
-        ttk.Entry(body, textvariable=app.name_var).pack(fill="x", pady=(4, 10))
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(10)
+        grid.setVerticalSpacing(8)
+        grid.setColumnStretch(1, 1)
 
-        field_label(body, "Folder output").pack(anchor="w")
-        path_row(body, app.output_var, app.choose_output, width=28).pack(
-            fill="x", pady=(4, 0)
-        )
-        ttk.Label(
-            body,
-            text="Video dan manifest timeline disimpan di folder ini.",
-            style="CardMuted.TLabel",
-            wraplength=320,
-        ).pack(fill="x", pady=(8, 0))
-        self._body = body
+        self.canvas_combo = QComboBox()
+        self.canvas_combo.addItems(app.canvas_choices)
+        self.canvas_combo.currentTextChanged.connect(app.on_canvas_changed)
+        grid.addWidget(FieldLabel("Resolusi"), 0, 0)
+        grid.addWidget(self.canvas_combo, 0, 1)
+
+        self.fps_combo = QComboBox()
+        self.fps_combo.addItems(("24", "25", "30", "60"))
+        grid.addWidget(FieldLabel("FPS"), 1, 0)
+        grid.addWidget(self.fps_combo, 1, 1)
+
+        shot_row = QWidget()
+        shot_row.setObjectName("Plain")
+        shot_layout = QHBoxLayout(shot_row)
+        shot_layout.setContentsMargins(0, 0, 0, 0)
+        shot_layout.setSpacing(6)
+        self.shot_edit = QLineEdit()
+        self.shot_edit.setFixedWidth(64)
+        shot_layout.addWidget(self.shot_edit)
+        shot_layout.addWidget(QLabel("detik"))
+        shot_layout.addStretch(1)
+        grid.addWidget(FieldLabel("Durasi per shot"), 2, 0)
+        grid.addWidget(shot_row, 2, 1)
+
+        self.language_combo = QComboBox()
+        self.language_combo.addItems(app.language_choices)
+        grid.addWidget(FieldLabel("Bahasa audio"), 3, 0)
+        grid.addWidget(self.language_combo, 3, 1)
+
+        self.model_combo = QComboBox()
+        self.model_combo.addItems(("tiny", "base", "small", "medium"))
+        self.model_combo.currentTextChanged.connect(app.on_source_changed)
+        grid.addWidget(FieldLabel("Model Whisper"), 4, 0)
+        grid.addWidget(self.model_combo, 4, 1)
+
+        self.body.addLayout(grid)
+
+        self.motion_check = QCheckBox("Gerakan halus (zoom / pan)")
+        self.captions_check = QCheckBox("Tempel caption ke video")
+        self.body.addWidget(self.motion_check)
+        self.body.addWidget(self.captions_check)
+
+    def values(self) -> dict[str, object]:
+        return {
+            "canvas": self.canvas_combo.currentText(),
+            "fps": int(self.fps_combo.currentText()),
+            "shot": self.shot_edit.text().strip(),
+            "language": self.language_combo.currentText(),
+            "model": self.model_combo.currentText(),
+            "motion": self.motion_check.isChecked(),
+            "captions": self.captions_check.isChecked(),
+        }
+
+    def apply_values(
+        self,
+        *,
+        canvas: str,
+        fps: int,
+        shot: str,
+        language: str,
+        model: str,
+        motion: bool,
+        captions: bool,
+    ) -> None:
+        if canvas:
+            self.canvas_combo.setCurrentText(canvas)
+        self.fps_combo.setCurrentText(str(fps))
+        self.shot_edit.setText(shot)
+        self.language_combo.setCurrentText(language)
+        self.model_combo.setCurrentText(model)
+        self.motion_check.setChecked(motion)
+        self.captions_check.setChecked(captions)
 
 
-def severity_color(tone: str) -> str:
-    return {
-        "muted": COLORS["muted"],
-        "warning": COLORS["warning"],
-        "success": COLORS["success"],
-        "danger": COLORS["danger"],
-    }[tone]
+class OutputPanel(Card):
+    def __init__(self, app) -> None:
+        super().__init__("Hasil")
+        self.app = app
 
+        self.name_edit = QLineEdit()
+        self.body.addWidget(FieldLabel("Nama project"))
+        self.body.addWidget(self.name_edit)
 
-def format_duration(duration_us: int) -> str:
-    if duration_us <= 0:
-        return "—"
-    total = duration_us / 1_000_000
-    minutes = int(total // 60)
-    seconds = total - minutes * 60
-    return f"{minutes:02d}:{seconds:05.2f}"
+        self.output_edit = QLineEdit()
+        self.body.addWidget(FieldLabel("Folder output"))
+        self.body.addWidget(PathRow(self.output_edit, "Pilih…", app.choose_output))
 
-
-def parse_media_paths(paths: list[Path]) -> list[Path]:
-    return [Path(path) for path in paths]
+        note = QLabel("Video dan manifest timeline disimpan di folder ini.")
+        note.setObjectName("Muted")
+        note.setWordWrap(True)
+        self.body.addWidget(note)

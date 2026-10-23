@@ -8,7 +8,7 @@ from ..core.manifest import seconds_to_us
 
 
 class SrtError(ValueError):
-    """Dilempar ketika file SRT tidak bisa dibaca atau rusak."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)

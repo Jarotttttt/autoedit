@@ -14,7 +14,7 @@ from .filters import image_filter, video_filter
 
 
 class RenderError(RuntimeError):
-    """Dilempar ketika timeline tidak bisa dirender."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)

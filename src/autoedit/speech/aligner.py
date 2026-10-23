@@ -9,7 +9,7 @@ from .tokenizer import tokenize
 
 
 class AlignmentError(RuntimeError):
-    """Dilempar ketika timestamp Whisper tidak bisa dipetakan ke kalimat."""
+    pass
 
 
 def align_lines(

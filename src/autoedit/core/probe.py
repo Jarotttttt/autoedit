@@ -11,7 +11,7 @@ MEDIA_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
 class ProbeError(RuntimeError):
-    """Dilempar ketika metadata media tidak bisa dibaca."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)

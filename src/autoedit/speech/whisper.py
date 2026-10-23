@@ -20,7 +20,7 @@ except ImportError:
 
 
 class TranscriptionError(RuntimeError):
-    """Dilempar ketika Whisper tidak menghasilkan timestamp yang bisa dipakai."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,13 +101,16 @@ def transcribe(
     prompt = re.sub(r"\s+", " ", transcript_hint).strip()[:2000] or None
     report_progress(progress_callback, 0.05, "Mengambil timestamp dari audio…")
     try:
-        segments, _info = model.transcribe(
+        segments, info = model.transcribe(
             str(source),
             language=_normalize_language(cfg.language) if cfg.language else None,
             word_timestamps=True,
             initial_prompt=prompt,
             vad_filter=False,
         )
+        audio_seconds = float(getattr(info, "duration", 0.0) or 0.0)
+        if audio_seconds <= 0:
+            audio_seconds = 600.0
         words: list[TimedWord] = []
         for segment in segments:
             segment_words = getattr(segment, "words", None) or []
@@ -122,10 +125,11 @@ def transcribe(
                 end_us = seconds_to_us(float(segment.end))
                 if end_us > start_us:
                     words.append(TimedWord(str(segment.text).strip(), start_us, end_us))
+            ratio = min(1.0, float(getattr(segment, "end", 0.0)) / audio_seconds)
             report_progress(
                 progress_callback,
-                min(0.95, max(0.06, float(getattr(segment, "end", 0.0)) / 600.0)),
-                "Whisper sedang membaca audio…",
+                0.06 + 0.88 * ratio,
+                f"Whisper sedang membaca audio… {int(ratio * 100)}%",
             )
     except TranscriptionError:
         raise
