@@ -25,7 +25,7 @@ from ..core.planner import PlannerConfig
 from ..core.probe import VIDEO_EXTENSIONS, ProbeError, probe_media
 from ..core.scanner import scan_media
 from ..render.ffmpeg import ffmpeg_available
-from ..runtime import resource_path
+from ..runtime import asset_path
 from ..speech.aligned import TimestampSource
 from ..speech.whisper import WhisperConfig, whisper_available
 from . import theme
@@ -548,9 +548,13 @@ def launch() -> int:
     app.setApplicationDisplayName("autoedit")
     theme.apply(app)
 
-    icon_path = resource_path("assets/logo.png")
-    if icon_path.is_file():
-        app.setWindowIcon(QIcon(str(icon_path)))
+    icon = QIcon()
+    for name in ("logo-256.png", "logo-64.png", "logo-32.png"):
+        path = asset_path(name)
+        if path.is_file():
+            icon.addFile(str(path))
+    if not icon.isNull():
+        app.setWindowIcon(icon)
 
     window = AutoEditWindow()
     window.show()

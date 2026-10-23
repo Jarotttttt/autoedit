@@ -130,8 +130,8 @@ src/autoedit/
 ├── render/    ffmpeg, filters, captions, renderer
 ├── app/       pipeline, settings
 ├── gui/       jendela PySide6, tema, widget
-├── assets/    ikon kecil untuk tema antarmuka
-└── runtime.py penyimpanan sementara dan cache
+├── assets/    logo aplikasi dan ikon kecil untuk tema antarmuka
+└── runtime.py penyimpanan sementara, cache, dan pencarian aset
 ```
 
 ## Pengujian
@@ -139,6 +139,25 @@ src/autoedit/
 ```powershell
 py -m pytest
 ```
+
+## Membuat file `.exe`
+
+Build memakai [PyInstaller](https://pyinstaller.org) dalam mode *onedir*, sehingga hasilnya
+adalah folder `dist\autoedit\` berisi `autoedit.exe` beserta dependensinya.
+
+```powershell
+py -m pip install pyinstaller
+.\build.ps1
+```
+
+Konfigurasi build ada di `autoedit.spec`: ikon aplikasi, aset tema, FFmpeg, dan model
+Whisper ikut dibundel, sementara komponen Qt yang tidak dipakai dibuang. Ukuran folder
+hasil sekitar **386 MB**, sebagian besar berasal dari FFmpeg, PyAV, CTranslate2, dan
+ONNX Runtime yang dibutuhkan fitur Whisper.
+
+Folder `build/` dan `dist/` tidak ikut masuk repositori. Pada versi `.exe`, data
+(cache model, berkas sementara, preferensi) disimpan di `data\` yang sejajar dengan
+`autoedit.exe`, sehingga folder hasil build bisa dipindah atau disalin utuh.
 
 ## Penyimpanan data
 

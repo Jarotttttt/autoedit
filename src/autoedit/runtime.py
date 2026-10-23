@@ -23,6 +23,13 @@ def runtime_temp_dir() -> Path:
     return app_data_root() / "temp"
 
 
+def asset_path(*parts: str) -> Path:
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if bundle_root:
+        return Path(bundle_root).joinpath("assets", *parts)
+    return Path(__file__).resolve().parent.joinpath("assets", *parts)
+
+
 def configure_runtime_storage() -> Path:
     root = app_data_root()
     temporary = root / "temp"
@@ -64,3 +71,5 @@ def resource_path(relative: str) -> Path:
     if bundle_root:
         return Path(bundle_root) / relative
     return Path(__file__).resolve().parents[2] / relative
+
+

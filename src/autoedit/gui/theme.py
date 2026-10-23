@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
+
+from ..runtime import asset_path
 
 BACKGROUND = "#0f1319"
 SURFACE = "#161c25"
@@ -23,10 +23,9 @@ SELECTION = "#2b3a4f"
 
 FONT_FAMILY = "Segoe UI"
 
-ASSET_ROOT = Path(__file__).resolve().parent.parent / "assets"
-ICON_CHEVRON = (ASSET_ROOT / "chevron-down.png").as_posix()
-ICON_CHEVRON_HOVER = (ASSET_ROOT / "chevron-down-hover.png").as_posix()
-ICON_CHECK = (ASSET_ROOT / "check.png").as_posix()
+ICON_CHEVRON = asset_path("chevron-down.png").as_posix()
+ICON_CHEVRON_HOVER = asset_path("chevron-down-hover.png").as_posix()
+ICON_CHECK = asset_path("check.png").as_posix()
 
 STYLESHEET = f"""
 QWidget {{

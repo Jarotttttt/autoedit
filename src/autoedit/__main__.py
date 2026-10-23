@@ -1,4 +1,7 @@
-from .gui import launch
+import sys
+
+from autoedit.cli import main
 
 if __name__ == "__main__":
-    launch()
+    main()
+    sys.exit(0)
